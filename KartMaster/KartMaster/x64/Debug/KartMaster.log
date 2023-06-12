@@ -1,0 +1,4 @@
+﻿  KartMaster.cpp
+E:\Proiecte\KartMaster\KartMaster\KartMaster\KartMaster.cpp(430,21): warning C4305: '+=': truncation from 'double' to 'float'
+E:\Proiecte\KartMaster\KartMaster\KartMaster\KartMaster.cpp(436,21): warning C4305: '-=': truncation from 'double' to 'float'
+  KartMaster.vcxproj -> E:\Proiecte\KartMaster\KartMaster\x64\Debug\KartMaster.exe
