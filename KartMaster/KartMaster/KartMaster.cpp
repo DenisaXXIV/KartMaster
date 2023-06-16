@@ -16,6 +16,9 @@
 #include <stb_image.h>
 
 #include "Camera.h"
+#include "FileSystem.h"
+#include "Shader.h"
+#include <vector>
 
 #pragma comment (lib, "glfw3.lib")
 #pragma comment (lib, "glew32.lib")
@@ -25,10 +28,11 @@
 const unsigned int SCR_WIDTH = 1000;
 const unsigned int SCR_HEIGHT = 800;
 
-GLuint VAO, VBO, EBO;
-unsigned int VertexShaderId, FragmentShaderId, ProgramId;
+GLuint skyboxTexture;
+GLuint skyboxVAO, skyboxVBO, skyboxEBO;
+GLuint racetrackVAO, racetrackVBO, racetrackEBO;
+unsigned int VertexShaderId, FragmentShaderId, ProgramId, racetrackTextureLocation;
 GLuint ProjMatrixLocation, ViewMatrixLocation, WorldMatrixLocation;
-unsigned int texture1Location, texture2Location, MixValueLocation;
 float g_fMixValue = 0.5;
 
 Camera* pCamera = nullptr;
@@ -68,72 +72,194 @@ const GLchar* FragmentShader =
    "}\n"
 };
 
-
-void CreateVBO()
+GLuint loadCubemap(std::vector<std::string> faces)
 {
+	//initialize texture id and bind it
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
-	/* Cuburi */
-	float vertices[] = {
-		0.0f, 0.0f, 9.0f,   9.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-		9.0f, 0.0f, 9.0f,   0.0f, 9.0f, 0.0f,   1.0f, 0.0f,
-		9.0f, 9.0f, 9.0f,   0.0f, 0.0f, 9.0f,   0.0f, 0.0f,
-		0.0f, 9.0f, 9.0f,   9.0f, 0.0f, 0.0f,   0.0f, 1.0f,
-		0.0f, 0.0f, 0.0f,   0.0f, 9.0f, 0.0f,   0.0f, 0.0f,
-		9.0f, 0.0f, 0.0f,   0.0f, 0.0f, 9.0f,   0.0f, 1.0f,
-		9.0f, 9.0f, 0.0f,   9.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-		0.0f, 9.0f, 0.0f,   0.0f, 9.0f, 0.0f,   1.0f, 0.0f
+	int width, height, nrChannels;
+	for (int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			//stbi_image_free(data);
+		}
+		else {
+			std::cout << "Could not load texture at path: " << faces[i] << std::endl;
+			//stbi_image_free(data);
+		}
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
+}
+
+float skyboxVertices[] = {
+	0.0f, 0.0f, 300.0f,   300.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+	300.0f, 0.0f, 300.0f,   0.0f, 300.0f, 0.0f,   1.0f, 0.0f,
+	300.0f, 300.0f, 300.0f,   0.0f, 0.0f, 300.0f,   0.0f, 0.0f,
+	0.0f, 300.0f, 300.0f,   300.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+	0.0f, 0.0f, 0.0f,   0.0f, 300.0f, 0.0f,   0.0f, 0.0f,
+	300.0f, 0.0f, 0.0f,   0.0f, 0.0f, 300.0f,   0.0f, 1.0f,
+	300.0f, 300.0f, 0.0f,   300.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+	0.0f, 300.0f, 0.0f,   0.0f, 300.0f, 0.0f,   1.0f, 0.0f
+};
+
+GLuint skyboxIndices[] = {
+	0,1,2,
+	0,2,3,
+	1,5,6,
+	1,6,2,
+	5,4,7,
+	5,7,6,
+	4,0,3,
+	4,3,7,
+	0,5,1,
+	0,4,5,
+	3,2,6,
+	3,6,7
+};
+
+
+void CreateRacetrackVBO()
+{
+	float racetrackVertices[] = {
+		0.0f, 200.0f, 0.0f, 1.0f,
+		200.0f, 200.0f, 0.0f, 1.0f,
+		200.0f, 0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
 	};
-	unsigned int indices[] = {
-	   0,1,2,
-	   0,2,3,
-	   1,5,6,
-	   1,6,2,
-	   5,4,7,
-	   5,7,6,
-	   4,0,3,
-	   4,3,7,
-	   0,5,1,
-	   0,4,5,
-	   3,2,6,
-	   3,6,7
+
+	float racetrackIndices[] = {
+		0,1,2,
+		0,2,3
 	};
 
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
+	glGenVertexArrays(1, &racetrackVAO);
+	glGenBuffers(1, &racetrackVBO);
+	glGenBuffers(1, &racetrackEBO);
 
-	glBindVertexArray(VAO);
+	glBindVertexArray(racetrackVAO);
 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, racetrackVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(racetrackVertices), racetrackVertices, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, racetrackEBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(racetrackIndices), racetrackIndices, GL_STATIC_DRAW);
 
 	// position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-	// color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
 	// texture coord attribute
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 }
-void DestroyVBO()
+
+void CreateRacetrackTexture(const std::string& strTexturePath)
 {
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
+	glGenTextures(1, &racetrackTextureLocation);
+	glBindTexture(GL_TEXTURE_2D, racetrackTextureLocation);
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// set texture filtering parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// load image, create texture and generate mipmaps
+	int width, height, nrChannels;
+	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
+	unsigned char* data = stbi_load((strTexturePath + "\\track.jpg").c_str(), &width, &height, &nrChannels, 0);
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else {
+		std::cout << "Failed to load texture" << std::endl;
+	}
+	stbi_image_free(data);
 }
+
+const std::vector<std::string> skyboxFacesDay{
+		FileSystem::getPath("Textures/skybox/day/right.png"),
+		FileSystem::getPath("Textures/skybox/day/left.png"),
+		FileSystem::getPath("Textures/skybox/day/top.png"),
+		FileSystem::getPath("Textures/skybox/day/bottom.png"),
+		FileSystem::getPath("Textures/skybox/day/front.png"),
+		FileSystem::getPath("Textures/skybox/day/back.png")
+};
+const std::vector<std::string> skyboxFacesNight{
+		FileSystem::getPath("Textures/skybox/night/right.png"),
+		FileSystem::getPath("Textures/skybox/night/left.png"),
+		FileSystem::getPath("Textures/skybox/night/top.png"),
+		FileSystem::getPath("Textures/skybox/night/bottom.png"),
+		FileSystem::getPath("Textures/skybox/night/front.png"),
+		FileSystem::getPath("Textures/skybox/night/back.png")
+};
+
+void SkyboxInitDay()
+{
+	//skybox racetrachVAO
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glBindVertexArray(skyboxVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+	//load textures
+	skyboxTexture = loadCubemap(skyboxFacesDay);
+}
+
+void SkyboxInitNight()
+{
+	//skybox racetrachVAO
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glBindVertexArray(skyboxVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+	//load textures
+	skyboxTexture = loadCubemap(skyboxFacesNight);
+}
+
+void RenderSkybox()
+{
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyboxEBO);
+
+	int indexArraySize;
+	glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &indexArraySize);
+	glDrawElements(GL_TRIANGLES, indexArraySize / sizeof(unsigned int), GL_UNSIGNED_INT, 0);
+}
+
+void DestroyskyboxVBO()
+{
+	glDeleteVertexArrays(1, &skyboxVAO);
+	glDeleteBuffers(1, &skyboxVBO);
+	glDeleteBuffers(1, &skyboxEBO);
+}
+
 void CreateShaders()
 {
 	VertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(VertexShaderId, 1, &VertexShader, NULL);
+	glShaderSource(VertexShaderId, 1, &VertexShader, nullptr);
 	glCompileShader(VertexShaderId);
 
 	FragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(FragmentShaderId, 1, &FragmentShader, NULL);
+	glShaderSource(FragmentShaderId, 1, &FragmentShader, nullptr);
 	glCompileShader(FragmentShaderId);
 
 	ProgramId = glCreateProgram();
@@ -164,13 +290,8 @@ void CreateShaders()
 	ProjMatrixLocation = glGetUniformLocation(ProgramId, "ProjMatrix");
 	ViewMatrixLocation = glGetUniformLocation(ProgramId, "ViewMatrix");
 	WorldMatrixLocation = glGetUniformLocation(ProgramId, "WorldMatrix");
-
-	MixValueLocation = glGetUniformLocation(ProgramId, "mixValue");
-	glUniform1f(MixValueLocation, g_fMixValue);
-
-	glUniform1i(glGetUniformLocation(ProgramId, "texture1"), 0);
-	glUniform1i(glGetUniformLocation(ProgramId, "texture2"), 1);
 }
+
 void DestroyShaders()
 {
 	glUseProgram(0);
@@ -184,56 +305,7 @@ void DestroyShaders()
 	glDeleteProgram(ProgramId);
 }
 
-void CreateTextures(const std::string& strTexturesPath)
-{
-	// load and create a texture
-	// -------------------------
-	// texture 1
-	// ---------
-	glGenTextures(1, &texture1Location);
-	glBindTexture(GL_TEXTURE_2D, texture1Location);
-	// set the texture wrapping parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// set texture filtering parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	// load image, create texture and generate mipmaps
-	int width, height, nrChannels;
-	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-	unsigned char* data = stbi_load((strTexturesPath + "\\black - marble.jpg").c_str(), &width, &height, &nrChannels, 0);
-	if (data) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else {
-		std::cout << "Failed to load texture" << std::endl;
-	}
-	stbi_image_free(data);
-	// texture 2
-	// ---------
-	glGenTextures(1, &texture2Location);
-	glBindTexture(GL_TEXTURE_2D, texture2Location);
-	// set the texture wrapping parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// set texture filtering parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// load image, create texture and generate mipmaps
-	data = stbi_load((strTexturesPath + "\\stone-wall.jpg").c_str(), &width, &height, &nrChannels, 0);
-	if (data) {
-		// note that the awesomeface.png has transparency and thus an alpha channel, so make sure to tell OpenGL the data type is of GL_RGBA
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else {
-		std::cout << "Failed to load texture" << std::endl;
-	}
-	stbi_image_free(data);
-}
-void Initialize(const std::string& strTexturesPath)
+void Initialize(const std::string& strTexturePath)
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // culoarea de fond a ecranului
 	//glEnable(GL_CULL_FACE);
@@ -244,39 +316,25 @@ void Initialize(const std::string& strTexturesPath)
 	//glFrontFace(GL_CCW);
 	//glCullFace(GL_BACK);
 
-	CreateVBO();
+	CreateRacetrackVBO();
+	CreateRacetrackTexture(strTexturePath);
+
+	SkyboxInitDay();
 	CreateShaders();
-	CreateTextures(strTexturesPath);
 
 	// Create camera
 	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.5, 0.5, 10));
 }
 
-void RenderCube()
-{
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-
-	int indexArraySize;
-	glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &indexArraySize);
-	glDrawElements(GL_TRIANGLES, indexArraySize / sizeof(unsigned int), GL_UNSIGNED_INT, 0);
-}
-
 void RenderFunction()
 {
-	glm::vec3 cubePositions[] = {
-	   glm::vec3(0.0f,  0.0f,   0.0f),
+	glm::vec3 cubemapPosition[] = {
+	   glm::vec3(0.0f, 0.0f, 0.0f),
 	};
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(ProgramId);
-
-	// bind textures on corresponding texture units
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture1Location);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, texture2Location);
 
 	glm::mat4 projection = pCamera->GetProjectionMatrix();
 	glUniformMatrix4fv(ProjMatrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
@@ -284,21 +342,21 @@ void RenderFunction()
 	glm::mat4 view = pCamera->GetViewMatrix();
 	glUniformMatrix4fv(ViewMatrixLocation, 1, GL_FALSE, glm::value_ptr(view));
 
-	glBindVertexArray(VAO);
+	glBindVertexArray(skyboxVAO);
 
-	for (unsigned int i = 0; i < sizeof(cubePositions) / sizeof(cubePositions[0]); i++) {
+	for (unsigned int i = 0; i < sizeof(cubemapPosition) / sizeof(cubemapPosition[0]); i++) {
 		// calculate the model matrix for each object and pass it to shader before drawing
-		glm::mat4 worldTransf = glm::translate(glm::mat4(1.0), cubePositions[i]);
+		glm::mat4 worldTransf = glm::translate(glm::mat4(1.0), cubemapPosition[i]);
 		glUniformMatrix4fv(WorldMatrixLocation, 1, GL_FALSE, glm::value_ptr(worldTransf));
 
-		RenderCube();
+		RenderSkybox();
 	}
 }
 
 void Cleanup()
 {
 	DestroyShaders();
-	DestroyVBO();
+	DestroyskyboxVBO();
 
 	delete pCamera;
 }
@@ -307,7 +365,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 // timing
 double deltaTime = 0.0f;    // time between current frame and last frame
@@ -316,12 +373,12 @@ double lastFrame = 0.0f;
 int main(int argc, char** argv)
 {
 	std::string strFullExeFileName = argv[0];
-	std::string strTexturesPath;
+	std::string strTexturePath;
 	const size_t last_slash_idx = strFullExeFileName.rfind('\\');
 	if (std::string::npos != last_slash_idx) {
-		strTexturesPath = strFullExeFileName.substr(0, last_slash_idx);
-		strTexturesPath = strTexturesPath.substr(0, strTexturesPath.find("\\x64"));
-		strTexturesPath.append("\\KartMaster\\Textures\\");
+		strTexturePath = strFullExeFileName.substr(0, last_slash_idx);
+		strTexturePath = strTexturePath.substr(0, strTexturePath.find("\\x64"));
+		strTexturePath.append("\\KartMaster\\Textures\\");
 	}
 
 	// glfw: initialize and configure
@@ -342,15 +399,19 @@ int main(int argc, char** argv)
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetScrollCallback(window, scroll_callback);
-	glfwSetKeyCallback(window, key_callback);
-
 
 	// tell GLFW to capture our mouse
 	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	glewInit();
+	Initialize(strTexturePath);
 
-	Initialize(strTexturesPath);
+	Shader skyboxShader("Shaders/skybox.vs", "Shaders/skybox.fs");
+	skyboxShader.Use();
+	skyboxShader.SetInt("skybox", 0);
+
+	Shader raceTrackShader("Shaders/racetrack.vs", "Shaders/racetrack.fs");
+	Shader raceTrackShaderNight("", "");
 
 	// render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -421,31 +482,4 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 void scroll_callback(GLFWwindow* window, double xoffset, double yOffset)
 {
 	pCamera->ProcessMouseScroll((float)yOffset);
-}
-
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS && g_fMixValue < 1.0)
-	{
-		g_fMixValue += 0.1;
-		glUniform1f(MixValueLocation, g_fMixValue);
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS && g_fMixValue > 0.0)
-	{
-		g_fMixValue -= 0.1;
-		glUniform1f(MixValueLocation, g_fMixValue);
-	}
-
-	/*if (tolower(key) == 'i' && g_fMixValue < 1.0)
-	{
-		g_fMixValue += 0.1;
-		glUniform1f(MixValueLocation, g_fMixValue);
-	}
-
-	if (tolower(key) == 'd' && g_fMixValue > 0.0)
-	{
-		g_fMixValue -= 0.1;
-		glUniform1f(MixValueLocation, g_fMixValue);
-	}*/
 }
