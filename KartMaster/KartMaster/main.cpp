@@ -26,6 +26,7 @@ const unsigned int SCR_HEIGHT = 900;
 
 #include "Camera.h"
 #include "Shader.h"
+#include <ext/matrix_transform.hpp>
 
 Camera* pCamera = nullptr;
 
@@ -44,6 +45,27 @@ double deltaTime = 0.0f;	// time between current frame and last frame
 double lastFrame = 0.0f;
 
 unsigned int CreateTexture(const std::string& strTexturePath);
+
+
+void drawGrass(Shader& shaderBlending, glm::mat4& model)
+{
+	const float pi = 3.1415;
+	std::vector<float> angles =
+	{
+		0.0f,
+		pi / 4.0f,
+		pi / 2.0f,
+		3.0f * pi / 4.0f
+	};
+
+	for (const auto& angle : angles)
+	{
+		model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		shaderBlending.SetMat4("model", model);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+	}
+}
+
 
 int main(int argc, char** argv)
 {
@@ -112,16 +134,29 @@ int main(int argc, char** argv)
 
 
 	// Grass vertices
+	float grassVertices[] =
+	{
+		// positions          // texture Coords 
+		0.5f,	0.5f,	0.0f,	1.0f,	0.0f,
+		-0.5f,	0.5f,	0.0f,	0.0f,	0.0f,
+		-0.5f,	-0.5f,	0.0f,	0.0f,	1.0f,
 
-
-
-
+		0.5f,	0.5f,	0.0f,	1.0f,	0.0f,
+		-0.5f,	-0.5f,	0.0f,	0.0f,	1.0f,
+		0.5f,	-0.5f,	0.0f,	1.0f,	1.0f
+	};
 
 	// Grass VAO si VBO
-
-
-
-
+	unsigned int grassVAO, grassVBO;
+	glGenVertexArrays(1, &grassVAO);
+	glGenBuffers(1, &grassVBO);
+	glBindVertexArray(grassVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, grassVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(grassVertices), &grassVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 
 	// Floor texture
 	unsigned int floorTexture = CreateTexture(strSourcePath + "Textures\\track.jpg");
@@ -134,9 +169,9 @@ int main(int argc, char** argv)
 
 	Shader shaderFloor((strSourcePath + "Shaders\\Floor.vs").c_str(),
 		(strSourcePath + "Shaders\\Floor.fs").c_str());
-	/*Shader shaderBlending((strSourcePath + "Shaders\\Blending.vs").c_str(),
+	Shader shaderBlending((strSourcePath + "Shaders\\Blending.vs").c_str(),
 		(strSourcePath + "Shaders\\Blending.fs").c_str());
-	shaderBlending.SetInt("texture1", 0);*/
+	shaderBlending.SetInt("texture1", 0);
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -168,11 +203,17 @@ int main(int argc, char** argv)
 
 
 
-		/*shaderBlending.Use();
+		shaderBlending.Use();
 		shaderBlending.SetMat4("projection", projection);
-		shaderBlending.SetMat4("view", view);*/
+		shaderBlending.SetMat4("view", view);
 
 		// Draw vegetation
+		glBindVertexArray(grassVAO);
+		glBindTexture(GL_TEXTURE_2D, grassTexture);
+		model = glm::mat4();
+		shaderFloor.SetMat4("model", model);
+
+		drawGrass(shaderBlending, model);
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);

@@ -1,2 +1,3 @@
-﻿  try.cpp
+﻿  main.cpp
+E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(52,19): warning C4305: 'initializing': truncation from 'double' to 'float'
   KartMaster.vcxproj -> E:\Proiecte\KartMaster\KartMaster\x64\Debug\KartMaster.exe
