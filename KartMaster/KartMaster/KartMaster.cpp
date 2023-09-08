@@ -177,7 +177,7 @@ void CreateRacetrackTexture(const std::string& strTexturePath)
 	// load image, create texture and generate mipmaps
 	int width, height, nrChannels;
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-	unsigned char* data = stbi_load((strTexturePath + "\\track.jpg").c_str(), &width, &height, &nrChannels, 0);
+	unsigned char* data = stbi_load((strTexturePath + "Textures \\track.jpg").c_str(), &width, &height, &nrChannels, 0);
 	if (data) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
@@ -189,20 +189,20 @@ void CreateRacetrackTexture(const std::string& strTexturePath)
 }
 
 const std::vector<std::string> skyboxFacesDay{
-		FileSystem::getPath("Textures/skybox/day/right.png"),
-		FileSystem::getPath("Textures/skybox/day/left.png"),
-		FileSystem::getPath("Textures/skybox/day/top.png"),
-		FileSystem::getPath("Textures/skybox/day/bottom.png"),
-		FileSystem::getPath("Textures/skybox/day/front.png"),
-		FileSystem::getPath("Textures/skybox/day/back.png")
+	FileSystem::getPath("Textures\\skybox\\day\\right.png"),
+		FileSystem::getPath("Textures\\skybox\\day\\left.png"),
+		FileSystem::getPath("Textures\\skybox\\day\\top.png"),
+		FileSystem::getPath("Textures\\skybox\\day\\bottom.png"),
+		FileSystem::getPath("Textures\\skybox\\day\\front.png"),
+		FileSystem::getPath("Textures\\skybox\\day\\back.png")
 };
 const std::vector<std::string> skyboxFacesNight{
-		FileSystem::getPath("Textures/skybox/night/right.png"),
-		FileSystem::getPath("Textures/skybox/night/left.png"),
-		FileSystem::getPath("Textures/skybox/night/top.png"),
-		FileSystem::getPath("Textures/skybox/night/bottom.png"),
-		FileSystem::getPath("Textures/skybox/night/front.png"),
-		FileSystem::getPath("Textures/skybox/night/back.png")
+	FileSystem::getPath("Textures\\skybox\\night\\right.png"),
+		FileSystem::getPath("Textures\\skybox\\night\\left.png"),
+		FileSystem::getPath("Textures\\skybox\\night\\top.png"),
+		FileSystem::getPath("Textures\\skybox\\night\\bottom.png"),
+		FileSystem::getPath("Textures\\skybox\\night\\front.png"),
+		FileSystem::getPath("Textures\\skybox\\night\\back.png")
 };
 
 void SkyboxInitDay()
@@ -378,7 +378,7 @@ int main(int argc, char** argv)
 	if (std::string::npos != last_slash_idx) {
 		strTexturePath = strFullExeFileName.substr(0, last_slash_idx);
 		strTexturePath = strTexturePath.substr(0, strTexturePath.find("\\x64"));
-		strTexturePath.append("\\KartMaster\\Textures\\");
+		strTexturePath.append("\\KartMaster\\");
 	}
 
 	// glfw: initialize and configure
@@ -406,11 +406,13 @@ int main(int argc, char** argv)
 	glewInit();
 	Initialize(strTexturePath);
 
-	Shader skyboxShader("Shaders/skybox.vs", "Shaders/skybox.fs");
+	Shader skyboxShader((strTexturePath + "Shaders\\skybox.vs").c_str(),
+		(strTexturePath + "Shaders\\skybox.fs").c_str());
 	skyboxShader.Use();
 	skyboxShader.SetInt("skybox", 0);
 
-	Shader raceTrackShader("Shaders/racetrack.vs", "Shaders/racetrack.fs");
+	Shader raceTrackShader((strTexturePath + "Shaders\\racetrack.vs").c_str(),
+		(strTexturePath + "Shaders\\racetrack.fs").c_str());
 	Shader raceTrackShaderNight("", "");
 
 	// render loop
