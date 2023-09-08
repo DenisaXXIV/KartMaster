@@ -27,8 +27,135 @@ const unsigned int SCR_HEIGHT = 900;
 #include "Camera.h"
 #include "Shader.h"
 #include <ext/matrix_transform.hpp>
+#include "FileSystem.h""
+
+const GLchar* VertexShader =
+{
+   "#version 330\n"\
+   "layout (location = 0) in vec3 aPos;\n"\
+   "layout (location = 1) in vec3 aColor;\n"\
+   "layout (location = 2) in vec2 aTexCoord;\n"\
+   "out vec3 ourColor;\n"\
+   "out vec2 TexCoord;\n"\
+   "uniform mat4 ProjMatrix;\n"\
+   "uniform mat4 ViewMatrix;\n"\
+   "uniform mat4 WorldMatrix;\n"\
+   "void main()\n"\
+   "{\n"\
+   "gl_Position = ProjMatrix * ViewMatrix * WorldMatrix * vec4(aPos, 1.0);\n"\
+   "ourColor = aColor;\n"\
+   "TexCoord = vec2(aTexCoord.x, aTexCoord.y);\n"\
+   "}\n"
+};
+
+const GLchar* FragmentShader =
+{
+   "#version 330\n"\
+   "out vec4 FragColor;\n"\
+   "in vec3 ourColor;\n"\
+   "in vec2 TexCoord;\n"\
+   "uniform float mixValue;\n"\
+   "uniform sampler2D texture1;\n"\
+   "uniform sampler2D texture2;\n"\
+   "void main()\n"\
+   "{\n"\
+   "  FragColor =   mix(texture(texture1, TexCoord), texture(texture2, TexCoord), mixValue);\n"\
+   "}\n"
+};
+
+unsigned int VertexShaderId, FragmentShaderId, ProgramId;
+GLuint ProjMatrixLocation, ViewMatrixLocation, WorldMatrixLocation;
+unsigned int texture1Location, texture2Location, MixValueLocation;
+float g_fMixValue = 0.5;
 
 Camera* pCamera = nullptr;
+
+void CreateShaders()
+{
+	VertexShaderId = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(VertexShaderId, 1, &VertexShader, NULL);
+	glCompileShader(VertexShaderId);
+
+	FragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(FragmentShaderId, 1, &FragmentShader, NULL);
+	glCompileShader(FragmentShaderId);
+
+	ProgramId = glCreateProgram();
+	glAttachShader(ProgramId, VertexShaderId);
+	glAttachShader(ProgramId, FragmentShaderId);
+	glLinkProgram(ProgramId);
+
+	GLint Success = 0;
+	GLchar ErrorLog[1024] = { 0 };
+
+	glGetProgramiv(ProgramId, GL_LINK_STATUS, &Success);
+	if (Success == 0) {
+		glGetProgramInfoLog(ProgramId, sizeof(ErrorLog), NULL, ErrorLog);
+		fprintf(stderr, "Error linking shader program: '%s'\n", ErrorLog);
+		exit(1);
+	}
+
+	glValidateProgram(ProgramId);
+	glGetProgramiv(ProgramId, GL_VALIDATE_STATUS, &Success);
+	if (!Success) {
+		glGetProgramInfoLog(ProgramId, sizeof(ErrorLog), NULL, ErrorLog);
+		fprintf(stderr, "Invalid shader program: '%s'\n", ErrorLog);
+		exit(1);
+	}
+
+	glUseProgram(ProgramId);
+
+	ProjMatrixLocation = glGetUniformLocation(ProgramId, "ProjMatrix");
+	ViewMatrixLocation = glGetUniformLocation(ProgramId, "ViewMatrix");
+	WorldMatrixLocation = glGetUniformLocation(ProgramId, "WorldMatrix");
+
+	MixValueLocation = glGetUniformLocation(ProgramId, "mixValue");
+	glUniform1f(MixValueLocation, g_fMixValue);
+
+	glUniform1i(glGetUniformLocation(ProgramId, "texture1"), 0);
+	glUniform1i(glGetUniformLocation(ProgramId, "texture2"), 1);
+}
+
+void RenderSkybox(unsigned int skyboxVBO, unsigned int skyboxEBO)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyboxEBO);
+
+	int indexArraySize;
+	glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &indexArraySize);
+	glDrawElements(GL_TRIANGLES, indexArraySize / sizeof(unsigned int), GL_UNSIGNED_INT, 0);
+}
+
+GLuint loadCubemap(std::vector<std::string> faces)
+{
+	//initialize texture id and bind it
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	for (int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			//stbi_image_free(data);
+		}
+		else {
+			std::cout << "Could not load texture at path: " << faces[i] << std::endl;
+			//stbi_image_free(data);
+		}
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
+}
 
 void Cleanup()
 {
@@ -107,6 +234,54 @@ int main(int argc, char** argv)
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	// Skybox vertices
+	float vertices[] = 
+	{
+		-10.0f, -10.0f, 10.0f,   10.0f, -10.0f, -10.0f,   1.0f, 1.0f,
+		10.0f, -10.0f, 10.0f,   -10.0f, 10.0f, -10.0f,   1.0f, 0.0f,
+		10.0f, 10.0f, 10.0f,   -10.0f, -10.0f, 10.0f,   0.0f, 0.0f,
+		-10.0f, 10.0f, 10.0f,   10.0f, -10.0f, -10.0f,   0.0f, 1.0f,
+		-10.0f, -10.0f, -10.0f,   -10.0f, 10.0f, -10.0f,   0.0f, 0.0f,
+		10.0f, -10.0f, -10.0f,   -10.0f, -10.0f, 10.0f,   0.0f, 1.0f,
+		10.0f, 10.0f, -10.0f,   10.0f, -10.0f, -10.0f,   1.0f, 1.0f,
+		-10.0f, 10.0f, -10.0f,   -10.0f, 10.0f, -10.0f,   1.0f, 0.0f
+	};
+	unsigned int indices[] = 
+	{
+	   0,1,2,
+	   0,2,3,
+	   1,5,6,
+	   1,6,2,
+	   5,4,7,
+	   5,7,6,
+	   4,0,3,
+	   4,3,7,
+	   0,5,1,
+	   0,4,5,
+	   3,2,6,
+	   3,6,7
+	};
+	// Skybox VAO si VBO
+	unsigned int skyboxVAO, skyboxVBO, skyboxEBO;
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glGenBuffers(1, &skyboxEBO);
+
+	glBindVertexArray(skyboxVAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyboxEBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
 	// Floor vertices
 	float floorVertices[] =
 	{
@@ -158,6 +333,26 @@ int main(int argc, char** argv)
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 
+	// Skybox texture
+	const std::vector<std::string> skyboxFacesDay{
+			FileSystem::getPath("Textures/skybox/day/right.png"),
+			FileSystem::getPath("Textures/skybox/day/left.png"),
+			FileSystem::getPath("Textures/skybox/day/top.png"),
+			FileSystem::getPath("Textures/skybox/day/bottom.png"),
+			FileSystem::getPath("Textures/skybox/day/front.png"),
+			FileSystem::getPath("Textures/skybox/day/back.png")
+	};
+	const std::vector<std::string> skyboxFacesNight{
+			FileSystem::getPath("Textures/skybox/night/right.png"),
+			FileSystem::getPath("Textures/skybox/night/left.png"),
+			FileSystem::getPath("Textures/skybox/night/top.png"),
+			FileSystem::getPath("Textures/skybox/night/bottom.png"),
+			FileSystem::getPath("Textures/skybox/night/front.png"),
+			FileSystem::getPath("Textures/skybox/night/back.png")
+	};
+
+	unsigned int skyboxTexture = loadCubemap(skyboxFacesDay);
+
 	// Floor texture
 	unsigned int floorTexture = CreateTexture(strSourcePath + "Textures\\track.jpg");
 
@@ -166,12 +361,17 @@ int main(int argc, char** argv)
 
 	// Create camera
 	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 3.0));
-
+	Shader shaderSkybox((strSourcePath + "Shaders\\skybox.vs").c_str(),
+		(strSourcePath + "Shaders\\skybox.fs").c_str());
 	Shader shaderFloor((strSourcePath + "Shaders\\Floor.vs").c_str(),
 		(strSourcePath + "Shaders\\Floor.fs").c_str());
 	Shader shaderBlending((strSourcePath + "Shaders\\Blending.vs").c_str(),
 		(strSourcePath + "Shaders\\Blending.fs").c_str());
 	shaderBlending.SetInt("texture1", 0);
+	GLuint ProjMatrixLocation, ViewMatrixLocation, WorldMatrixLocation;
+	ProjMatrixLocation = glGetUniformLocation(ProgramId, "ProjMatrix");
+	ViewMatrixLocation = glGetUniformLocation(ProgramId, "ViewMatrix");
+	WorldMatrixLocation = glGetUniformLocation(ProgramId, "WorldMatrix");
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -194,14 +394,25 @@ int main(int argc, char** argv)
 		shaderFloor.SetMat4("projection", projection);
 		shaderFloor.SetMat4("view", view);
 
+		// Draw skybox
+		glm::vec3 cubePositions[] = {
+			glm::vec3(0.0f, 0.0f, 0.0f),
+		};
+
+		for (unsigned int i = 0; i < sizeof(cubePositions) / sizeof(cubePositions[0]); i++) {
+			// calculate the model matrix for each object and pass it to shader before drawing
+			glm::mat4 worldTransf = glm::translate(glm::mat4(1.0), cubePositions[i]);
+			//glUniformMatrix4fv(WorldMatrixLocation, 1, GL_FALSE, glm::value_ptr(worldTransf));
+
+			RenderSkybox(skyboxVBO, skyboxEBO);
+		}
+
 		// Draw floor
 		glBindVertexArray(floorVAO);
 		glBindTexture(GL_TEXTURE_2D, floorTexture);
 		model = glm::mat4();
 		shaderFloor.SetMat4("model", model);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-
 
 		shaderBlending.Use();
 		shaderBlending.SetMat4("projection", projection);
