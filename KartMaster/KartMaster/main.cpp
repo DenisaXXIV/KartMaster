@@ -47,7 +47,7 @@ double lastFrame = 0.0f;
 unsigned int CreateTexture(const std::string& strTexturePath);
 
 
-void drawGrass(Shader& shaderBlending, glm::mat4& model)
+void drawGrass(Shader& shaderBlending, glm::mat4& model, glm::vec3 pos)
 {
 	const float pi = 3.1415;
 	std::vector<float> angles =
@@ -60,7 +60,7 @@ void drawGrass(Shader& shaderBlending, glm::mat4& model)
 
 	for (const auto& angle : angles)
 	{
-		model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, angle, pos);
 		shaderBlending.SetMat4("model", model);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
@@ -162,7 +162,7 @@ int main(int argc, char** argv)
 	unsigned int floorTexture = CreateTexture(strSourcePath + "Textures\\track.jpg");
 
 	// Grass texture
-	unsigned int grassTexture = CreateTexture(strSourcePath + "Textures\\grass3.png");
+	unsigned int grassTexture = CreateTexture(strSourcePath + "Textures\\car.png");
 
 	// Create camera
 	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 3.0));
@@ -213,7 +213,8 @@ int main(int argc, char** argv)
 		model = glm::mat4();
 		shaderFloor.SetMat4("model", model);
 
-		drawGrass(shaderBlending, model);
+		drawGrass(shaderBlending, model, glm::vec3(10.0f, 20.0f, 40.0f));
+		drawGrass(shaderBlending, model, glm::vec3(30.0f, -20.0f, 30.0f));
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
