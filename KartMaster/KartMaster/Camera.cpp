@@ -6,6 +6,8 @@
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
 
+#include <iostream>
+
 #include <glfw3.h>
 
 Camera::Camera(const int width, const int height, const glm::vec3& position)

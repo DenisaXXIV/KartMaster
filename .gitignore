@@ -4,6 +4,7 @@
 #Ignore external libraries
 **/External/
 **/.vs/
+**/x64/
 **/KartMaster/x64/Debug/
 
 # Compiled Object files

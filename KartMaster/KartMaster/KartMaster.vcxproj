@@ -142,6 +142,9 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="ECameraMovementType.cpp" />
     <ClCompile Include="KartMaster.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="try.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
