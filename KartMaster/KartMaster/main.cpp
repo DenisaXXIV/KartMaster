@@ -28,6 +28,8 @@ const unsigned int SCR_HEIGHT = 900;
 #include "Shader.h"
 #include <ext/matrix_transform.hpp>
 #include "FileSystem.h""
+#include <ext/matrix_clip_space.hpp>
+#include <gtc/type_ptr.hpp>
 
 const GLchar* VertexShader =
 {
@@ -173,8 +175,7 @@ double lastFrame = 0.0f;
 
 unsigned int CreateTexture(const std::string& strTexturePath);
 
-
-void drawGrass(Shader& shaderBlending, glm::mat4& model, glm::vec3 pos)
+void draw2D(Shader& shaderBlending, glm::mat4& model, const glm::vec3& position, const glm::vec3& scale)
 {
 	const float pi = 3.1415;
 	std::vector<float> angles =
@@ -187,12 +188,15 @@ void drawGrass(Shader& shaderBlending, glm::mat4& model, glm::vec3 pos)
 
 	for (const auto& angle : angles)
 	{
-		model = glm::rotate(model, angle, pos);
-		shaderBlending.SetMat4("model", model);
+		glm::mat4 rotatedModel = model;
+		rotatedModel = glm::translate(rotatedModel, position);
+		rotatedModel = glm::rotate(rotatedModel, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		rotatedModel = glm::scale(rotatedModel, scale);
+
+		shaderBlending.SetMat4("model", rotatedModel);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 }
-
 
 int main(int argc, char** argv)
 {
@@ -235,7 +239,7 @@ int main(int argc, char** argv)
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	// Skybox vertices
-	float vertices[] = 
+	float vertices[] =
 	{
 		-10.0f, -10.0f, 10.0f,   10.0f, -10.0f, -10.0f,   1.0f, 1.0f,
 		10.0f, -10.0f, 10.0f,   -10.0f, 10.0f, -10.0f,   1.0f, 0.0f,
@@ -246,7 +250,7 @@ int main(int argc, char** argv)
 		10.0f, 10.0f, -10.0f,   10.0f, -10.0f, -10.0f,   1.0f, 1.0f,
 		-10.0f, 10.0f, -10.0f,   -10.0f, 10.0f, -10.0f,   1.0f, 0.0f
 	};
-	unsigned int indices[] = 
+	unsigned int indices[] =
 	{
 	   0,1,2,
 	   0,2,3,
@@ -335,7 +339,7 @@ int main(int argc, char** argv)
 
 	// Skybox texture
 	const std::vector<std::string> skyboxFacesDay{
-			FileSystem::getPath("Textures/skybox/day/right.png"),
+		FileSystem::getPath("Textures/skybox/day/right.png"),
 			FileSystem::getPath("Textures/skybox/day/left.png"),
 			FileSystem::getPath("Textures/skybox/day/top.png"),
 			FileSystem::getPath("Textures/skybox/day/bottom.png"),
@@ -343,7 +347,7 @@ int main(int argc, char** argv)
 			FileSystem::getPath("Textures/skybox/day/back.png")
 	};
 	const std::vector<std::string> skyboxFacesNight{
-			FileSystem::getPath("Textures/skybox/night/right.png"),
+		FileSystem::getPath("Textures/skybox/night/right.png"),
 			FileSystem::getPath("Textures/skybox/night/left.png"),
 			FileSystem::getPath("Textures/skybox/night/top.png"),
 			FileSystem::getPath("Textures/skybox/night/bottom.png"),
@@ -357,7 +361,19 @@ int main(int argc, char** argv)
 	unsigned int floorTexture = CreateTexture(strSourcePath + "Textures\\track.jpg");
 
 	// Grass texture
-	unsigned int grassTexture = CreateTexture(strSourcePath + "Textures\\car.png");
+	unsigned int grassTexture = CreateTexture(strSourcePath + "Textures\\grass3.png");
+
+	// Tree texture
+	unsigned int treeTexture = CreateTexture(strSourcePath + "Textures\\tree.png");
+
+	// Tree texture
+	unsigned int trafficLightTexture = CreateTexture(strSourcePath + "Textures\\semafor.png");
+
+	// Tree texture
+	unsigned int firTexture = CreateTexture(strSourcePath + "Textures\\brad.png");
+
+	// Overlay texture
+	unsigned int overlayTexture = CreateTexture(strSourcePath + "Textures\\overlay.png");
 
 	// Create camera
 	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 3.0));
@@ -387,6 +403,7 @@ int main(int argc, char** argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glm::mat4 model = glm::mat4(1.0);
+
 
 		shaderFloor.Use();
 		glm::mat4 projection = pCamera->GetProjectionMatrix();
@@ -423,9 +440,118 @@ int main(int argc, char** argv)
 		glBindTexture(GL_TEXTURE_2D, grassTexture);
 		model = glm::mat4();
 		shaderFloor.SetMat4("model", model);
+		glm::vec3 dim = glm::vec3(0.1, 0.1, 0.1);
 
-		drawGrass(shaderBlending, model, glm::vec3(10.0f, 20.0f, 40.0f));
-		drawGrass(shaderBlending, model, glm::vec3(30.0f, -20.0f, 30.0f));
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 2.5), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 2.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 2.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 2.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 2.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 2.3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 2.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 2.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 2.5), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 2.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(1.8, -0.45, 2.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 2.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 2.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 2.3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 2.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 2.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 3.5), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 3.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 3.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 3.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 3.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 3.3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 3.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 3.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 3.5), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 3.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(1.8, -0.45, 3.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 3.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 3.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 3.3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 3.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 3.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 4.1), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 3.9), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 4.2), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 4.1), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 3.8), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 4.2), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 3.9), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 4.1), dim);
+		draw2D(shaderBlending, model, glm::vec3(1.8, -0.45, 3.9), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 4.2), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 4.1), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 3.8), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 4.2), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 3.9), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 4.5), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 4.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 4.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 4.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, 4.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.4, -0.45, 4.3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 4.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, 4.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 4.5), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 4.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(1.8, -0.45, 4.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 4.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, 4.6), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.4, -0.45, 4.3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.8, -0.45, 4.7), dim);
+		draw2D(shaderBlending, model, glm::vec3(2.2, -0.45, 4.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(-1.7, -0.45, -2), dim);
+		draw2D(shaderBlending, model, glm::vec3(-3, -0.45, -4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3.2, -0.45, -4.1), dim);
+		draw2D(shaderBlending, model, glm::vec3(-2.2, -0.45, -3), dim);
+		draw2D(shaderBlending, model, glm::vec3(2, -0.45, -3), dim);
+		draw2D(shaderBlending, model, glm::vec3(-3.2, -0.45, -1.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(3, -0.45, -1.4), dim);
+		draw2D(shaderBlending, model, glm::vec3(4, -0.45, 0), dim);
+		draw2D(shaderBlending, model, glm::vec3(-0.3, -0.45, -2.8), dim);
+		draw2D(shaderBlending, model, glm::vec3(-0.8, -0.45, -1), dim);
+		draw2D(shaderBlending, model, glm::vec3(0.5, -0.45, -1.3), dim);
+
+
+		// Draw trees
+		glBindVertexArray(grassVAO);
+		glBindTexture(GL_TEXTURE_2D, treeTexture);
+		model = glm::mat4();
+		shaderFloor.SetMat4("model", model);
+		draw2D(shaderBlending, model, glm::vec3(3, 0, 4), glm::vec3(1, 1, 1));
+		draw2D(shaderBlending, model, glm::vec3(-3, 0, 4), glm::vec3(1.5, 1.5, 1.5));
+		draw2D(shaderBlending, model, glm::vec3(-3.5, 0, -3), glm::vec3(1.2, 1.2, 1.2));
+		draw2D(shaderBlending, model, glm::vec3(1.8, 0, -3), glm::vec3(1.2, 1.2, 1.2));
+		draw2D(shaderBlending, model, glm::vec3(3.3, 0, -1.8), glm::vec3(1.1, 1.1, 1.1));
+		draw2D(shaderBlending, model, glm::vec3(1.4, 0, 1.2), glm::vec3(1.4, 1.4, 1.4));
+
+
+
+		// Draw traffic light
+		glBindVertexArray(grassVAO);
+		glBindTexture(GL_TEXTURE_2D, trafficLightTexture);
+		model = glm::mat4();
+		shaderFloor.SetMat4("model", model);
+		draw2D(shaderBlending, model, glm::vec3(-3, -0.3, 0), glm::vec3(0.15, 0.5, 0.15));
+		draw2D(shaderBlending, model, glm::vec3(3.8, -0.3, -1), glm::vec3(0.15, 0.5, 0.15));
+		draw2D(shaderBlending, model, glm::vec3(-0.8, -0.3, -1.9), glm::vec3(0.15, 0.5, 0.15));
+
+		// Draw fir
+		glBindVertexArray(grassVAO);
+		glBindTexture(GL_TEXTURE_2D, firTexture);
+		model = glm::mat4();
+		shaderFloor.SetMat4("model", model);
+		draw2D(shaderBlending, model, glm::vec3(-1, 0, -4), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(-4.5, 0, 2), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(-3.5, 0, -1), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(0.3, 0, 3.7), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(0.6, 0, -1.7), glm::vec3(0.7, 1.2, 0.7));
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
@@ -458,15 +584,15 @@ void processInput(GLFWwindow* window)
 		pCamera->ProcessKeyboard(ECameraMovementType::LEFT, (float)deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 		pCamera->ProcessKeyboard(ECameraMovementType::RIGHT, (float)deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS)
-		pCamera->ProcessKeyboard(ECameraMovementType::UP, (float)deltaTime);
-	if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS)
-		pCamera->ProcessKeyboard(ECameraMovementType::DOWN, (float)deltaTime);
+	//if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS)
+	//	pCamera->ProcessKeyboard(ECameraMovementType::UP, (float)deltaTime);
+	//if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS)
+	//	pCamera->ProcessKeyboard(ECameraMovementType::DOWN, (float)deltaTime);
 
 	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
 		int width, height;
 		glfwGetWindowSize(window, &width, &height);
-		pCamera->Reset(width, height);
+		pCamera->Reset(width, 0.5f);
 
 	}
 }

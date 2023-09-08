@@ -30,6 +30,9 @@ void Camera::Set(const int width, const int height, const glm::vec3& position)
 
 	this->worldUp = glm::vec3(0, 1, 0);
 	this->position = position;
+	this->position.y = -0.35f;
+
+
 
 	lastX = width / 2.0f;
 	lastY = height / 2.0f;
@@ -77,25 +80,36 @@ const glm::mat4 Camera::GetProjectionMatrix() const
 void Camera::ProcessKeyboard(ECameraMovementType direction, float deltaTime)
 {
 	float velocity = (float)(cameraSpeedFactor * deltaTime);
+	glm::vec3 horizontalForward = glm::normalize(glm::vec3(forward.x, 0.0f, forward.z));
+	float rotationAngle = 0.0f;
+
 	switch (direction) {
 	case ECameraMovementType::FORWARD:
-		position += forward * velocity;
+		position += horizontalForward * velocity;
 		break;
 	case ECameraMovementType::BACKWARD:
-		position -= forward * velocity;
+		position -= horizontalForward * velocity;
 		break;
 	case ECameraMovementType::LEFT:
 		position -= right * velocity;
+		rotationAngle = glm::radians(-90.0f);
 		break;
 	case ECameraMovementType::RIGHT:
 		position += right * velocity;
+		rotationAngle = glm::radians(90.0f);
 		break;
 	case ECameraMovementType::UP:
-		position += up * velocity;
+		position.y += velocity;
 		break;
 	case ECameraMovementType::DOWN:
-		position -= up * velocity;
+		position.y -= velocity;
 		break;
+	}
+
+	// Rotate the camera
+	if (rotationAngle != 0.0f) {
+		yaw += rotationAngle;
+		UpdateCameraVectors();
 	}
 }
 
@@ -106,6 +120,8 @@ void Camera::MouseControl(float xPos, float yPos)
 		lastY = yPos;
 		bFirstMouseMove = false;
 	}
+
+	return;
 
 	float xChange = xPos - lastX;
 	float yChange = lastY - yPos;
@@ -158,6 +174,7 @@ void Camera::UpdateCameraVectors()
 	this->forward.y = sin(glm::radians(pitch));
 	this->forward.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 	this->forward = glm::normalize(this->forward);
+
 	// Also re-calculate the Right and Up vector
 	right = glm::normalize(glm::cross(forward, worldUp));  // Normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
 	up = glm::normalize(glm::cross(right, forward));
