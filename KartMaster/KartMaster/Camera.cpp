@@ -55,6 +55,11 @@ void Camera::Reshape(int windowWidth, int windowHeight)
 	glViewport(0, 0, windowWidth, windowHeight);
 }
 
+const glm::vec3 Camera::GetPosition() const
+{
+	return position;
+}
+
 const glm::mat4 Camera::GetViewMatrix() const
 {
 	// Returns the View Matrix

@@ -70,6 +70,15 @@ GLuint ProjMatrixLocation, ViewMatrixLocation, WorldMatrixLocation;
 unsigned int texture1Location, texture2Location, MixValueLocation;
 float g_fMixValue = 0.5;
 
+float g_fKa = 0.3;
+float g_fKd = 0.5;
+float g_fKs = 0.3;
+float g_fN = 1;
+
+// timing
+double deltaTime = 0.0f; // time between current frame and last frame 
+double lastFrame = 0.0f;
+
 Camera* pCamera = nullptr;
 
 void CreateShaders()
@@ -169,10 +178,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
-// timing
-double deltaTime = 0.0f;	// time between current frame and last frame
-double lastFrame = 0.0f;
-
 unsigned int CreateTexture(const std::string& strTexturePath);
 
 void draw2D(Shader& shaderBlending, glm::mat4& model, const glm::vec3& position, const glm::vec3& scale)
@@ -237,6 +242,55 @@ int main(int argc, char** argv)
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// set up vertex data (and buffer(s)) and configure vertex attributes 
+	float verticesLightCube[] = {
+		// Positions
+		-0.1f, -0.1f, -0.1f, // 0
+		 0.1f, -0.1f, -0.1f, // 1
+		 0.1f,  0.1f, -0.1f, // 2
+		-0.1f,  0.1f, -0.1f, // 3
+		-0.1f, -0.1f,  0.1f, // 4
+		 0.1f, -0.1f,  0.1f, // 5
+		 0.1f,  0.1f,  0.1f, // 6
+		-0.1f,  0.1f,  0.1f  // 7
+	};
+
+	unsigned int indicesLightCube[] = {
+		0, 1, 2, // Front face
+		2, 3, 0,
+		4, 5, 6, // Back face
+		6, 7, 4,
+		1, 5, 6, // Right face
+		6, 2, 1,
+		4, 0, 3, // Left face
+		3, 7, 4,
+		3, 2, 6, // Top face
+		6, 7, 3,
+		4, 5, 1, // Bottom face
+		1, 0, 4
+	};
+
+	unsigned int lightCubeVBO, lightCubeVAO, lightCubeEBO;
+	glGenVertexArrays(1, &lightCubeVAO);
+	glGenBuffers(1, &lightCubeVBO);
+	glGenBuffers(1, &lightCubeEBO);
+
+	// Step 2: Bind VAO
+	glBindVertexArray(lightCubeVAO);
+
+	// Step 3: Bind VBO and EBO
+	glBindBuffer(GL_ARRAY_BUFFER, lightCubeVBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightCubeEBO);
+
+	// Step 4: Transfer data to GPU
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verticesLightCube), verticesLightCube, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicesLightCube), indicesLightCube, GL_STATIC_DRAW);
+
+	// Step 5: Configure Vertex Attributes
+	// Position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
 
 	// Skybox vertices
 	float vertices[] =
@@ -312,6 +366,7 @@ int main(int argc, char** argv)
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 
 
+
 	// Grass vertices
 	float grassVertices[] =
 	{
@@ -372,8 +427,16 @@ int main(int argc, char** argv)
 	// Tree texture
 	unsigned int firTexture = CreateTexture(strSourcePath + "Textures\\brad.png");
 
+	// Rock texture
+	unsigned int rockTexture = CreateTexture(strSourcePath + "Textures\\rock.png");
+
+	// Big stone texture
+	unsigned int stoneTexture = CreateTexture(strSourcePath + "Textures\\stone.png");
+
 	// Overlay texture
-	unsigned int overlayTexture = CreateTexture(strSourcePath + "Textures\\overlay.png");
+	unsigned int overlayTexture = CreateTexture(strSourcePath + "Textures\\kart.png");
+
+	glm::vec3 lightPos(0.0f, 0.0f, 2.0f);
 
 	// Create camera
 	pCamera = new Camera(SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0, 0.0, 3.0));
@@ -383,6 +446,11 @@ int main(int argc, char** argv)
 		(strSourcePath + "Shaders\\Floor.fs").c_str());
 	Shader shaderBlending((strSourcePath + "Shaders\\Blending.vs").c_str(),
 		(strSourcePath + "Shaders\\Blending.fs").c_str());
+	Shader lightingShader((strSourcePath + "Shaders\\PhongLight.vs").c_str(),
+		(strSourcePath + "Shaders\\PhongLight.fs").c_str());
+	Shader lampShader((strSourcePath + "Shaders\\Lamp.vs").c_str(),
+		(strSourcePath + "Shaders\\Lamp.fs").c_str());
+
 	shaderBlending.SetInt("texture1", 0);
 	GLuint ProjMatrixLocation, ViewMatrixLocation, WorldMatrixLocation;
 	ProjMatrixLocation = glGetUniformLocation(ProgramId, "ProjMatrix");
@@ -403,7 +471,6 @@ int main(int argc, char** argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glm::mat4 model = glm::mat4(1.0);
-
 
 		shaderFloor.Use();
 		glm::mat4 projection = pCamera->GetProjectionMatrix();
@@ -524,12 +591,12 @@ int main(int argc, char** argv)
 		glBindTexture(GL_TEXTURE_2D, treeTexture);
 		model = glm::mat4();
 		shaderFloor.SetMat4("model", model);
-		draw2D(shaderBlending, model, glm::vec3(3, 0, 4), glm::vec3(1, 1, 1));
-		draw2D(shaderBlending, model, glm::vec3(-3, 0, 4), glm::vec3(1.5, 1.5, 1.5));
-		draw2D(shaderBlending, model, glm::vec3(-3.5, 0, -3), glm::vec3(1.2, 1.2, 1.2));
-		draw2D(shaderBlending, model, glm::vec3(1.8, 0, -3), glm::vec3(1.2, 1.2, 1.2));
-		draw2D(shaderBlending, model, glm::vec3(3.3, 0, -1.8), glm::vec3(1.1, 1.1, 1.1));
-		draw2D(shaderBlending, model, glm::vec3(1.4, 0, 1.2), glm::vec3(1.4, 1.4, 1.4));
+		draw2D(shaderBlending, model, glm::vec3(3, 0.1, 4), glm::vec3(1, 1, 1));
+		draw2D(shaderBlending, model, glm::vec3(-3, 0.1, 4), glm::vec3(1.5, 1.5, 1.5));
+		draw2D(shaderBlending, model, glm::vec3(-3.5, 0.1, -3), glm::vec3(1.2, 1.2, 1.2));
+		draw2D(shaderBlending, model, glm::vec3(1.8, 0.1, -3), glm::vec3(1.2, 1.2, 1.2));
+		draw2D(shaderBlending, model, glm::vec3(3.3, 0.1, -1.8), glm::vec3(1.1, 1.1, 1.1));
+		draw2D(shaderBlending, model, glm::vec3(1.4, 0.1, 1.2), glm::vec3(1.4, 1.4, 1.4));
 
 
 
@@ -547,11 +614,58 @@ int main(int argc, char** argv)
 		glBindTexture(GL_TEXTURE_2D, firTexture);
 		model = glm::mat4();
 		shaderFloor.SetMat4("model", model);
-		draw2D(shaderBlending, model, glm::vec3(-1, 0, -4), glm::vec3(1, 1.2, 1));
-		draw2D(shaderBlending, model, glm::vec3(-4.5, 0, 2), glm::vec3(1, 1.2, 1));
-		draw2D(shaderBlending, model, glm::vec3(-3.5, 0, -1), glm::vec3(1, 1.2, 1));
-		draw2D(shaderBlending, model, glm::vec3(0.3, 0, 3.7), glm::vec3(1, 1.2, 1));
-		draw2D(shaderBlending, model, glm::vec3(0.6, 0, -1.7), glm::vec3(0.7, 1.2, 0.7));
+		draw2D(shaderBlending, model, glm::vec3(-1, 0.1, -4), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(-4.5, 0.1, 2), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(-3.5, 0.1, -1), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(0.3, 0.1, 3.7), glm::vec3(1, 1.2, 1));
+		draw2D(shaderBlending, model, glm::vec3(0.6, 0.1, -1.7), glm::vec3(0.7, 1.2, 0.7));
+
+		// Draw stone
+		glBindVertexArray(grassVAO);
+		glBindTexture(GL_TEXTURE_2D, stoneTexture);
+		model = glm::mat4();
+		shaderFloor.SetMat4("model", model);
+		draw2D(shaderBlending, model, glm::vec3(-4.5, -0.2, 4.5), glm::vec3(0.7, 0.8, 0.7));
+		draw2D(shaderBlending, model, glm::vec3(4.5, -0.1, -4), glm::vec3(1, 1.2, 1));
+
+		// Draw rock
+		glBindVertexArray(grassVAO);
+		glBindTexture(GL_TEXTURE_2D, rockTexture);
+		model = glm::mat4();
+		shaderFloor.SetMat4("model", model);
+		draw2D(shaderBlending, model, glm::vec3(-2.1, -0.45, 0.4), glm::vec3(0.2, 0.2, 0.2));
+		draw2D(shaderBlending, model, glm::vec3(-3.5, -0.45, 3.7), glm::vec3(0.2, 0.2, 0.2));
+
+
+		float time = glfwGetTime();
+
+		// Calculate the angle for the rotation (in radians)
+		float rotationAngle = time * glm::radians(5.0f); // Adjust the rotation speed as needed
+
+		// Calculate the new position of the light cube
+		float radius = 6.0f; // Radius of the circular path
+		float lightX = sin(rotationAngle) * radius; // Calculate x-coordinate
+		float lightY = cos(rotationAngle) * radius; // Calculate z-coordinate
+		float lightZ = 0.0f; // Height of the light cube
+
+		// Create a new model matrix for the light cube
+		glm::mat4 lightModel = glm::mat4(1.0f); // Initialize as identity matrix
+		lightModel = glm::translate(lightModel, glm::vec3(lightX, lightY, lightZ));
+		//lightModel = glm::rotate(lightModel, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around Y-axis
+
+
+		// Use the light cube shader program
+		lampShader.Use();
+
+		// Set shader uniforms
+		lampShader.SetMat4("model", lightModel);
+		lampShader.SetMat4("view", view);
+		lampShader.SetMat4("projection", projection);
+
+		// Draw the light cube
+		glBindVertexArray(lightCubeVAO);
+		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);

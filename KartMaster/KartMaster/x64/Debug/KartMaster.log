@@ -1,5 +1,10 @@
 ﻿  main.cpp
+E:\Proiecte\KartMaster\KartMaster\KartMaster\Shader.h(51,16): warning C4305: 'initializing': truncation from 'double' to 'float'
+E:\Proiecte\KartMaster\KartMaster\KartMaster\Shader.h(53,16): warning C4305: 'initializing': truncation from 'double' to 'float'
 E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(30,10): warning C4067: unexpected tokens following preprocessor directive - expected a newline
-E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(180,19): warning C4305: 'initializing': truncation from 'double' to 'float'
-E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(595,25): warning C4244: 'argument': conversion from 'float' to 'const int', possible loss of data
+E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(73,13): warning C4305: 'initializing': truncation from 'double' to 'float'
+E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(75,13): warning C4305: 'initializing': truncation from 'double' to 'float'
+E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(185,19): warning C4305: 'initializing': truncation from 'double' to 'float'
+E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(640,14): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+E:\Proiecte\KartMaster\KartMaster\KartMaster\main.cpp(709,25): warning C4244: 'argument': conversion from 'float' to 'const int', possible loss of data
   KartMaster.vcxproj -> E:\Proiecte\KartMaster\KartMaster\x64\Debug\KartMaster.exe

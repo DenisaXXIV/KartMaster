@@ -21,6 +21,11 @@ void Shader::Use() const
 
 unsigned int Shader::GetID() const { return ID; }
 
+void Shader::SetValue(const std::string& name, float fValue) const
+{
+	glUniform1f(glGetUniformLocation(ID, name.c_str()), fValue);
+}
+
 // MVP
 unsigned int loc_model_matrix;
 unsigned int loc_view_matrix;

@@ -36,6 +36,8 @@ public:
 
 	void SetVec3(const std::string& name, float x, float y, float z) const;
 
+	void SetValue(const std::string& name, float fValue) const;
+
 	void SetMat4(const std::string& name, const glm::mat4& mat) const;
 
 private:
@@ -46,4 +48,8 @@ private:
 	void CheckCompileErrors(unsigned int shaderStencilTesting, std::string type);
 private:
 	unsigned int ID;
+	float g_fKa = 0.3;
+	float g_fKd = 0.5;
+	float g_fKs = 0.3;
+	float g_fN = 1;
 };
